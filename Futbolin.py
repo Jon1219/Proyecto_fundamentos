@@ -29,7 +29,9 @@ canvas.create_image(0, 0, image=fondo, anchor="nw")
 canvas.create_image(ancho // 2, 100, image=texto, anchor="center")
 
 # Texto debajo de la imagen de texto
-canvas.create_text(ancho // 2, 180, text="escoge un equipo", font=("Algerian", 20), fill="white", anchor="n")
+boton_new_partida = tk.Button(ventana, text="Start new game", fg="Black", bg="Lightblue", font=("Algerian", 20))
+boton_new_partida.place(relx=0.5, rely=0.25, anchor="center")
+
 
 # Botón EXIT en esquina superior derecha
 boton_exit = tk.Button(ventana, text="EXIT", command=ventana.destroy, fg="Black", bg="red")
