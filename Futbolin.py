@@ -40,6 +40,87 @@ def salir():
         pass
 
 # =========================
+# NUEVA FUNCIÓN: ABOUT US
+# =========================
+def abrir_about_us():
+    about = tk.Toplevel()
+    about.title("About Us - Champions Game")
+    about.state("zoomed")
+    about.update()
+    ancho_a = about.winfo_width()
+    alto_a = about.winfo_height()
+
+    # Fondo
+    try:
+        fondo_img = Image.open("Champions.png").resize((ancho_a, alto_a), Image.Resampling.LANCZOS)
+        fondo = ImageTk.PhotoImage(fondo_img)
+    except Exception as e:
+        print("Error cargando Champions.jpg:", e)
+        fondo = None
+
+    
+
+    canvas_a = tk.Canvas(about, width=ancho_a, height=alto_a)
+    canvas_a.pack(fill="both", expand=True)
+    if fondo:
+        canvas_a.create_image(0, 0, image=fondo, anchor="nw")
+        canvas_a.fondo = fondo
+    else:
+        canvas_a.create_rectangle(0, 0, ancho_a, alto_a, fill="black")
+
+    # === Foto y texto de Jonathan ===
+    try:
+        jon_img = Image.open("Jon.jpg").resize((250, 300), Image.Resampling.LANCZOS)
+        jon = ImageTk.PhotoImage(jon_img)
+        canvas_a.create_image(ancho_a * 0.3, alto_a * 0.4, image=jon)
+        canvas_a.jon = jon
+    except Exception as e:
+        print("Error cargando Jon.jpg:", e)
+
+    texto_jon = (
+        "Jonathan Luna Oviedo\n"
+        "Carné: 2025090024\n"
+        "Curso: Fundamentos de sistemas computacionales\n"
+        "Profesor: Luis Alonso Barboza Artavia\n"
+        "Grupo: 2\n"
+        "Carrera: Ing. en Computadores\n"
+        "Función: Encargado de realizar la maqueta, circuito y funcionalidad del hardware"
+    )
+    canvas_a.create_text(ancho_a * 0.3, alto_a * 0.75, text=texto_jon,
+                         fill="gold", font=("Arial", 14, "bold"), justify="center")
+
+    # === Foto y texto de Johan ===
+    try:
+        johan_img = Image.open("Johan.jpg").resize((250, 300), Image.Resampling.LANCZOS)
+        johan = ImageTk.PhotoImage(johan_img)
+        canvas_a.create_image(ancho_a * 0.7, alto_a * 0.4, image=johan)
+        canvas_a.johan = johan
+    except Exception as e:
+        print("Error cargando Johan.jpg:", e)
+
+    texto_johan = (
+        "Johan Molina Vaglio\n"
+        "Carné: 2025094364\n"
+        "Curso: Fundamentos de sistemas computacionales\n"
+        "Profesor: Luis Alonso Barboza Artavia\n"
+        "Grupo: 2\n"
+        "Carrera: Ing. en Computadores\n"
+        "Función: Encargado de la interfaz gráfica, animaciones y experiencia visual"
+    )
+    canvas_a.create_text(ancho_a * 0.7, alto_a * 0.75, text=texto_johan,
+                         fill="gold", font=("Arial", 14, "bold"), justify="center")
+    canvas_a.create_text(ancho_a / 2, alto_a * 0.9, text="Versión: V1.0",
+                         fill="white", font=("Arial", 16, "bold"), justify="center")
+
+    # Botón EXIT
+    boton_exit_a = tk.Button(about, text="EXIT", command=salir,
+                             fg="black", bg="red", font=("Arial", 14, "bold"), width=8)
+    canvas_a.create_window(ancho_a - 50, 40, window=boton_exit_a, anchor="ne")
+
+
+# =========================
+
+# =========================
 # FASE DE PENALES CON ANIMACIÓN DEL PORTERO
 # =========================
 def iniciar_penales(equipos_seleccionados, seleccion_final):
@@ -171,10 +252,14 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         nonlocal total_tiros
         jugador_actual = turno[0]
 
-        # Mostrar resultado
+    # Mostrar resultado
         if pos in posiciones_bloqueadas:
             resultado = "ATAJADO 🧤"
             color = "red"
+        # revelar la casilla bloqueada
+            for b in botones:
+                if int(b["text"]) in posiciones_bloqueadas:
+                    b.config(bg="red")
         else:
             resultado = "¡GOL! ⚽"
             color = "lime"
@@ -183,24 +268,23 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         tiros[jugador_actual] += 1
         total_tiros += 1
 
-        # Mostrar resultado en pantalla (borrar resultados previos en esa zona)
+    # mostrar resultado
         resultado_text = canvas_p.create_text(ancho_p//2, alto_p//2, text=resultado,
-                                             fill=color, font=("Algerian", 50, "bold"))
+                                         fill=color, font=("Algerian", 50, "bold"))
         canvas_p.itemconfig(texto_marcador,
-                            text=f"{local}: {goles[local]}   -   {visitante}: {goles[visitante]}")
+                        text=f"{local}: {goles[local]}   -   {visitante}: {goles[visitante]}")
 
-        # Desactivar botones hasta siguiente
+    # desactivar botones
         for b in botones:
             b.config(state="disabled")
 
-        # animar regreso del portero al centro antes del siguiente tiro
         animar_portero(x_portero_inicial, regresar=True)
 
-        # decidir siguiente
         if total_tiros < 10:
             ventana_penales.after(1400, lambda: (canvas_p.delete(resultado_text), siguiente_tiro()))
         else:
             ventana_penales.after(1400, lambda: (canvas_p.delete(resultado_text), terminar()))
+
 
     # Prepara siguiente tiro: alterna turno, limpia botones y crea nuevos
     def siguiente_tiro():
@@ -212,8 +296,8 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
     botones_widgets = []  # guardamos referencias
     posiciones_rects = []  # rectángulos de color (si se quieren más adelante)
     def crear_botones():
-        nonlocal posiciones_bloqueadas, botones, botones_widgets, posiciones_rects
-        # destruir botones anteriores
+        nonlocal posiciones_bloqueadas, botones, botones_widgets
+    # destruir botones anteriores
         for b in botones_widgets:
             try:
                 b.destroy()
@@ -222,20 +306,21 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         botones_widgets = []
         botones = []
 
-        # elegir bloqueos consecutivos
+    # elegir bloqueos consecutivos
         inicio = random.randint(1, 5)
-        posiciones_bloqueadas = [inicio, inicio + 1]
+        posiciones_bloqueadas = [inicio, inicio + 1]  # pero no se muestran todavía
 
-        # crear botones y colorear bloques en rojo
+    # crear botones (todos del mismo color neutro)
         for i in range(6):
             numero = i + 1
-            color_fondo = "red" if numero in posiciones_bloqueadas else "lightblue"
+            color_fondo = "lightblue"  # no revelar bloqueos
             b = tk.Button(ventana_penales, text=str(numero), font=("Algerian", 22, "bold"),
-                          bg=color_fondo, fg="black", width=6, height=2,
-                          command=lambda n=numero: lanzar(n))
+                        bg=color_fondo, fg="black", width=6, height=2,
+                        command=lambda n=numero: lanzar(n))
             b.place(relx=0.2 + (i * 0.1), rely=0.85, anchor="center")
             botones_widgets.append(b)
             botones.append(b)
+
 
         # animar al portero hacia la zona bloqueada (centro entre las dos posiciones)
         pos_media = (posiciones_bloqueadas[0] + posiciones_bloqueadas[1]) / 2.0
@@ -553,8 +638,12 @@ except Exception as e:
     canvas.pack(fill="both", expand=True)
 
 boton_new_partida = tk.Button(ventana, text="Start new game", fg="black", bg="lightblue",
-                              font=("Algerian",20), command=abrir_seleccion_equipos)
+                              font=("Algerian",20),width=15,height=1, command=abrir_seleccion_equipos)
 boton_new_partida.place(relx=0.5, rely=0.25, anchor="center")
+
+boton_about = tk.Button(ventana, text="About Us", fg="black", bg="lightblue",
+                        font=("Algerian", 20),width=15, height=1, command=abrir_about_us)
+boton_about.place(relx=0.5, rely=0.35, anchor="center")
 
 boton_exit = tk.Button(ventana, text="EXIT", command=salir, fg="black", bg="red",
                        font=("Arial",14,"bold"), relief="raised", width=8)
