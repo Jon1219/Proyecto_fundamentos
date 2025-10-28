@@ -11,17 +11,14 @@ import socket
 import json
 from datetime import datetime
 
-# =========================
-# SERVIDOR PARA COMUNICACIÓN CON RASPBERRY
-# =========================
-# =========================
-# CLIENTE PARA COMUNICACIÓN CON RASPBERRY
-# =========================
-# =========================
-# CLIENTE PARA COMUNICACIÓN CON RASPBERRY (VERSIÓN CORREGIDA)
-# =========================
+######################################################
+# CLASE CLIENTE PARA COMUNICACIÓN CON RASPBERRY PI
+# Maneja toda la comunicación por sockets con la Raspberry
+######################################################
+
 class ClienteRaspberry:
-    def __init__(self, host='10.238.236.35', port=5000):  # IP de la Raspberry
+    def __init__(self, host='10.238.236.35', port=5000):
+        """Inicializa el cliente con configuración de conexión"""
         self.host = host
         self.port = port
         self.socket = None
@@ -29,9 +26,13 @@ class ClienteRaspberry:
         self.equipos_seleccionados = []
         self.seleccion_final = {}
         self.reconectar_automatico = True
+
+######################################################
+# CONECTAR CON RASPBERRY PI
+# Establece conexión con Raspberry Pi en hilo separado
+######################################################
         
     def conectar_raspberry(self):
-        """Conecta con la Raspberry Pi"""
         if self.conectado:
             return
             
@@ -48,16 +49,19 @@ class ClienteRaspberry:
             except Exception as e:
                 print(f"❌ Error conectando a Raspberry: {e}")
                 self.conectado = False
-                # Reintentar después de 5 segundos si está habilitado
                 if self.reconectar_automatico:
                     print("🔄 Reintentando conexión en 5 segundos...")
                     ventana.after(5000, self.conectar_raspberry)
         
         thread = threading.Thread(target=conectar_loop, daemon=True)
         thread.start()
+
+######################################################
+# RECIBIR MENSAJES DE RASPBERRY
+# Escucha mensajes entrantes de la Raspberry en hilo separado
+######################################################
     
     def recibir_mensajes(self):
-        """Recibe mensajes de la Raspberry en un hilo separado"""
         def recibir_loop():
             while self.conectado:
                 try:
@@ -76,22 +80,25 @@ class ClienteRaspberry:
                             except json.JSONDecodeError:
                                 print(f"❌ Mensaje JSON inválido: {mensaje_str}")
                 except socket.timeout:
-                    continue  # Timeout normal, continuar esperando
+                    continue
                 except Exception as e:
                     print(f"❌ Error recibiendo mensajes: {e}")
                     self.conectado = False
                     break
             
-            # Si salimos del loop, intentar reconectar
             if self.reconectar_automatico:
                 print("🔄 Intentando reconexión...")
                 ventana.after(2000, self.conectar_raspberry)
         
         thread = threading.Thread(target=recibir_loop, daemon=True)
         thread.start()
+
+######################################################
+# PROCESAR MENSAJES RECIBIDOS
+# Procesa los diferentes tipos de mensajes recibidos de Raspberry
+######################################################
     
     def procesar_mensaje(self, mensaje):
-        """Procesa los mensajes recibidos de la Raspberry"""
         tipo = mensaje.get("tipo")
         datos = mensaje.get("datos", {})
         
@@ -133,8 +140,6 @@ class ClienteRaspberry:
                     "jugador": datos.get("tirador_visitante")
                 }
             }
-            
-            # Mostrar mensaje en la interfaz
             self.mostrar_configuracion_raspberry()
             
         elif tipo == "PARTIDA_INICIADA":
@@ -166,9 +171,13 @@ class ClienteRaspberry:
             ganador = datos.get("ganador")
             print(f"🏁 Partida finalizada: {goles_local} - {goles_visitante}")
             print(f"🎊 Ganador: {ganador}")
+
+######################################################
+# MOSTRAR CONFIGURACIÓN DE RASPBERRY
+# Muestra la configuración recibida de Raspberry en consola
+######################################################
     
     def mostrar_configuracion_raspberry(self):
-        """Muestra la configuración recibida de la Raspberry"""
         if self.equipos_seleccionados and self.seleccion_final:
             print("\n" + "="*50)
             print("CONFIGURACIÓN RECIBIDA DE RASPBERRY:")
@@ -179,14 +188,16 @@ class ClienteRaspberry:
             print(f"  Portero: {self.seleccion_final[self.equipos_seleccionados[1]]['portero']}")
             print(f"  Tirador: {self.seleccion_final[self.equipos_seleccionados[1]]['jugador']}")
             print("="*50)
-            
-            # Preguntar si iniciar el juego
             self.preguntar_inicio_juego()
+
+######################################################
+# PREGUNTAR INICIO DE JUEGO
+# Pregunta al usuario si quiere iniciar el juego con configuración de Raspberry
+######################################################
     
     def preguntar_inicio_juego(self):
-        """Pregunta al usuario si quiere iniciar el juego con la configuración de Raspberry"""
         try:
-            respuesta = messagebox.askyesno(  # ⚡ CORREGIDO: usar messagebox directamente
+            respuesta = messagebox.askyesno(
                 "Configuración Recibida", 
                 f"¿Deseas iniciar el juego con esta configuración?\n\n"
                 f"LOCAL: {self.equipos_seleccionados[0]}\n"
@@ -201,27 +212,31 @@ class ClienteRaspberry:
                 self.iniciar_juego_desde_raspberry()
         except Exception as e:
             print(f"❌ Error mostrando messagebox: {e}")
-            # Si hay error con el messagebox, iniciar automáticamente después de 3 segundos
             print("🔄 Iniciando juego automáticamente en 3 segundos...")
             ventana.after(3000, self.iniciar_juego_desde_raspberry)
+
+######################################################
+# INICIAR JUEGO DESDE RASPBERRY
+# Inicia el juego con la configuración de la Raspberry
+######################################################
     
     def iniciar_juego_desde_raspberry(self):
-        """Inicia el juego con la configuración de la Raspberry"""
         if self.equipos_seleccionados and self.seleccion_final:
             print("🚀 Iniciando juego con configuración de Raspberry...")
-            # Cerrar ventanas actuales
             for widget in ventana.winfo_children():
                 if isinstance(widget, tk.Toplevel):
                     try:
                         widget.destroy()
                     except:
                         pass
-            
-            # Iniciar directamente los penales
             ventana.after(500, lambda: iniciar_penales(self.equipos_seleccionados, self.seleccion_final))
+
+######################################################
+# ENVIAR MENSAJE A RASPBERRY
+# Envía mensajes a la Raspberry Pi
+######################################################
     
     def enviar_mensaje(self, tipo, datos):
-        """Envía mensajes a la Raspberry"""
         if self.conectado and self.socket:
             try:
                 mensaje = {
@@ -237,14 +252,22 @@ class ClienteRaspberry:
                 print(f"❌ Error enviando mensaje a Raspberry: {e}")
                 self.conectado = False
         return False
+
+######################################################
+# REINICIAR JUEGO
+# Envía comando de reinicio a la Raspberry
+######################################################
     
     def reiniciar_juego(self):
-        """Envía comando de reinicio a la Raspberry"""
         self.enviar_mensaje("REINICIAR", {})
         print("🔄 Comando de reinicio enviado a Raspberry")
+
+######################################################
+# DESCONECTAR DE RASPBERRY
+# Cierra la conexión con la Raspberry Pi
+######################################################
     
     def desconectar(self):
-        """Desconecta del servidor"""
         self.reconectar_automatico = False
         self.conectado = False
         if self.socket:
@@ -257,30 +280,32 @@ class ClienteRaspberry:
 # Crear instancia global del cliente
 cliente_raspberry = ClienteRaspberry()
 
-# =========================
-# INICIALIZAR MÚSICA Y EFECTOS DE SONIDO
-# =========================
+######################################################
+# INICIALIZAR SONIDOS Y MÚSICA
+# Configura la música de fondo y efectos de sonido
+######################################################
+
 try:
     pygame.mixer.init()
     pygame.mixer.music.load("musica_fondo.mp3")
-    pygame.mixer.music.play(-1)  # Loop infinito
+    pygame.mixer.music.play(-1)
     
-    # Cargar efectos de sonido
     sonido_silbato = pygame.mixer.Sound("silbato.mp3")
     sonido_gol = pygame.mixer.Sound("gol.mp3")
     sonido_cagon = pygame.mixer.Sound("cagon.mp3")
 except Exception as e:
     print("Error al cargar sonidos:", e)
-    # Crear placeholders para evitar errores
     class DummySound:
         def play(self): pass
     sonido_silbato = DummySound()
     sonido_gol = DummySound()
     sonido_cagon = DummySound()
 
-# =========================
-# VENTANA PRINCIPAL (se crea temprano para que otras funciones la usen)
-# =========================
+######################################################
+# CREAR VENTANA PRINCIPAL
+# Configura la ventana principal de la aplicación
+######################################################
+
 ventana = tk.Tk()
 ventana.title("Menú principal - Champions Game")
 ventana.state("zoomed")
@@ -288,53 +313,71 @@ ventana.update()
 ancho = ventana.winfo_width()
 alto = ventana.winfo_height()
 
-# =========================
+######################################################
 # VARIABLES GLOBALES
-# =========================
-modalidad_juego = "automática"  # "automática" o "manual"
+# Define variables globales del sistema
+######################################################
+
+modalidad_juego = "automática"
 HISTORIAL_FILE = "historial_partidos.json"
 GOLEADORES_FILE = "ranking_goleadores.json"
 
-# =========================
-# SISTEMA DE HISTORIAL Y GOLEADORES
-# =========================
+######################################################
+# CARGAR HISTORIAL DE PARTIDOS
+# Carga el historial de partidos desde archivo JSON
+######################################################
+
 def cargar_historial():
-    """Carga el historial de partidos desde JSON"""
     try:
         with open(HISTORIAL_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {"partidos": [], "ultimo_id": 0}
 
+######################################################
+# GUARDAR HISTORIAL DE PARTIDOS
+# Guarda el historial en archivo JSON
+######################################################
+
 def guardar_historial(historial):
-    """Guarda el historial en JSON"""
     try:
         with open(HISTORIAL_FILE, 'w', encoding='utf-8') as f:
             json.dump(historial, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print("Error guardando historial:", e)
 
+######################################################
+# CARGAR RANKING DE GOLEADORES
+# Carga el ranking de goleadores desde archivo JSON
+######################################################
+
 def cargar_goleadores():
-    """Carga el ranking de goleadores desde JSON"""
     try:
         with open(GOLEADORES_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {"goleadores": []}
 
+######################################################
+# GUARDAR RANKING DE GOLEADORES
+# Guarda el ranking de goleadores en archivo JSON
+######################################################
+
 def guardar_goleadores(goleadores):
-    """Guarda el ranking de goleadores en JSON"""
     try:
         with open(GOLEADORES_FILE, 'w', encoding='utf-8') as f:
             json.dump(goleadores, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print("Error guardando goleadores:", e)
 
+######################################################
+# ACTUALIZAR RANKING DE GOLEADORES
+# Actualiza el ranking con nuevos goles de jugadores
+######################################################
+
 def actualizar_goleadores(jugador, equipo, goles):
-    """Actualiza el ranking de goleadores"""
     goleadores_data = cargar_goleadores()
     
-    # Buscar si el jugador ya existe
     encontrado = False
     for goleador in goleadores_data["goleadores"]:
         if goleador["jugador"] == jugador and goleador["equipo"] == equipo:
@@ -342,7 +385,6 @@ def actualizar_goleadores(jugador, equipo, goles):
             encontrado = True
             break
     
-    # Si no existe, agregarlo
     if not encontrado:
         goleadores_data["goleadores"].append({
             "jugador": jugador,
@@ -350,18 +392,20 @@ def actualizar_goleadores(jugador, equipo, goles):
             "goles": goles
         })
     
-    # Ordenar por goles (descendente)
     goleadores_data["goleadores"].sort(key=lambda x: x["goles"], reverse=True)
     
-    # Mantener solo los top 3
     if len(goleadores_data["goleadores"]) > 3:
         goleadores_data["goleadores"] = goleadores_data["goleadores"][:3]
     
     guardar_goleadores(goleadores_data)
 
+######################################################
+# REGISTRAR PARTIDO EN HISTORIAL
+# Guarda un nuevo partido en el historial y actualiza goleadores
+######################################################
+
 def registrar_partido(equipo_local, equipo_visitante, goles_local, goles_visitante, 
                      jugador_local, jugador_visitante, modalidad):
-    """Registra un nuevo partido en el historial"""
     historial = cargar_historial()
     
     nuevo_partido = {
@@ -377,25 +421,24 @@ def registrar_partido(equipo_local, equipo_visitante, goles_local, goles_visitan
         "ganador": equipo_local if goles_local > goles_visitante else equipo_visitante if goles_visitante > goles_local else "Empate"
     }
     
-    # Agregar al inicio de la lista
     historial["partidos"].insert(0, nuevo_partido)
     
-    # Mantener solo los últimos 3 partidos
     if len(historial["partidos"]) > 3:
         historial["partidos"] = historial["partidos"][:3]
     
     historial["ultimo_id"] += 1
     guardar_historial(historial)
     
-    # Actualizar goleadores
     actualizar_goleadores(jugador_local, equipo_local, goles_local)
     actualizar_goleadores(jugador_visitante, equipo_visitante, goles_visitante)
 
-# =========================
-# NUEVA FUNCIÓN: VER HISTORIAL
-# =========================
+######################################################
+# ABRIR VENTANA DE HISTORIAL
+# Muestra el historial de partidos y ranking de goleadores
+######################################################
+
 def abrir_historial():
-    ventana.withdraw
+    ventana.withdraw()
     historial_window = tk.Toplevel()
     historial_window.title("Historial de Partidos - Top Goleadores")
     historial_window.state("zoomed")
@@ -403,7 +446,6 @@ def abrir_historial():
     ancho_h = historial_window.winfo_width()
     alto_h = historial_window.winfo_height()
 
-    # Fondo
     try:
         fondo_img = Image.open("Champions.png").resize((ancho_h, alto_h), Image.Resampling.LANCZOS)
         fondo = ImageTk.PhotoImage(fondo_img)
@@ -419,15 +461,12 @@ def abrir_historial():
     else:
         canvas_h.create_rectangle(0, 0, ancho_h, alto_h, fill="black")
 
-    # Título
     canvas_h.create_text(ancho_h//2, 80, text="HISTORIAL Y ESTADÍSTICAS", 
                         fill="gold", font=("Algerian", 40, "bold"))
 
-    # Cargar datos
     historial = cargar_historial()
     goleadores = cargar_goleadores()
 
-    # ===== HISTORIAL DE PARTIDOS =====
     canvas_h.create_text(ancho_h//2, 150, text="ÚLTIMOS 3 PARTIDOS", 
                         fill="cyan", font=("Arial", 28, "bold"))
 
@@ -446,7 +485,6 @@ def abrir_historial():
         canvas_h.create_text(ancho_h//2, y_pos, text="No hay partidos registrados",
                            fill="white", font=("Arial", 16, "bold"))
 
-    # ===== TOP GOLEADORES =====
     canvas_h.create_text(ancho_h//2, y_pos + 50, text="TOP 3 GOLEADORES", 
                         fill="lime", font=("Arial", 28, "bold"))
 
@@ -463,17 +501,18 @@ def abrir_historial():
         canvas_h.create_text(ancho_h//2, y_pos_goleadores, text="No hay datos de goleadores",
                            fill="white", font=("Arial", 16, "bold"))
 
-    # Botón EXIT
     boton_exit_h = tk.Button(historial_window, text="EXIT", command=historial_window.destroy,
                             fg="black", bg="red", font=("Arial", 14, "bold"), width=8)
     canvas_h.create_window(ancho_h - 50, 40, window=boton_exit_h, anchor="ne")
 
-# =========================
-# PANTALLA DE CONFIGURACIÓN
-# =========================
+######################################################
+# ABRIR CONFIGURACIÓN DE JUEGO
+# Permite seleccionar modalidad de juego (automática o manual)
+######################################################
+
 def abrir_configuracion():
     global modalidad_juego
-    ventana.withdraw
+    ventana.withdraw()
     
     config = tk.Toplevel()
     config.title("Configuración del Juego - CEFoot v4.1")
@@ -482,7 +521,6 @@ def abrir_configuracion():
     ancho_c = config.winfo_width()
     alto_c = config.winfo_height()
 
-    # Fondo
     try:
         fondo_img = Image.open("Champions.png").resize((ancho_c, alto_c), Image.Resampling.LANCZOS)
         fondo = ImageTk.PhotoImage(fondo_img)
@@ -498,29 +536,24 @@ def abrir_configuracion():
     else:
         canvas_c.create_rectangle(0, 0, ancho_c, alto_c, fill="black")
 
-    # Título
     canvas_c.create_text(ancho_c//2, 100, text="CONFIGURACIÓN DEL JUEGO", 
                         fill="white", font=("Algerian", 40, "bold"))
     
     canvas_c.create_text(ancho_c//2, 180, text="Selecciona la modalidad de juego:", 
                         fill="yellow", font=("Arial", 24, "bold"))
 
-    # Variable para los radio buttons
     var_modalidad = tk.StringVar(value=modalidad_juego)
 
-    # Radio Button para Automático
     rb_auto = tk.Radiobutton(config, text="AUTOMÁTICO", variable=var_modalidad, 
                             value="automática", font=("Arial", 20, "bold"),
                             bg="lightgreen", fg="black", selectcolor="green")
     rb_auto.place(relx=0.5, rely=0.35, anchor="center")
 
-    # Radio Button para Manual
     rb_manual = tk.Radiobutton(config, text="MANUAL", variable=var_modalidad, 
                               value="manual", font=("Arial", 20, "bold"),
                               bg="lightcoral", fg="black", selectcolor="red")
     rb_manual.place(relx=0.5, rely=0.45, anchor="center")
 
-    # Descripción de modalidades
     desc_auto = "• Cambio automático después de 5 segundos\n• Ideal para juego fluido"
     desc_manual = "• Cambio manual con botón físico\n• Mayor control del jugador"
 
@@ -539,23 +572,22 @@ def abrir_configuracion():
         except:
             pass
         
-        # Ir a selección de equipos
         abrir_seleccion_equipos()
 
-    # Botón CONFIRMAR
     boton_confirmar = tk.Button(config, text="CONFIRMAR", bg="gold", fg="black",
                                font=("Algerian", 22, "bold"), width=15, height=2,
                                command=confirmar_configuracion)
     boton_confirmar.place(relx=0.5, rely=0.7, anchor="center")
 
-    # Botón EXIT
     boton_exit_c = tk.Button(config, text="EXIT", command=salir, 
                             fg="black", bg="red", font=("Arial", 14, "bold"), width=8)
     canvas_c.create_window(ancho_c - 50, 40, window=boton_exit_c, anchor="ne")
 
-# =========================
-# FUNCIÓN SALIR (DETENER MÚSICA Y CERRAR TODO)
-# =========================
+######################################################
+# FUNCIÓN PARA SALIR DEL JUEGO
+# Detiene música y cierra la aplicación
+######################################################
+
 def salir():
     try:
         pygame.mixer.music.stop()
@@ -567,11 +599,13 @@ def salir():
     except:
         pass
 
-# =========================
-# NUEVA FUNCIÓN: ABOUT US
-# =========================
+######################################################
+# ABRIR VENTANA ABOUT US
+# Muestra información sobre los desarrolladores
+######################################################
+
 def abrir_about_us():
-    ventana.withdraw
+    ventana.withdraw()
     about = tk.Toplevel()
     about.title("About Us - Champions Game")
     about.state("zoomed")
@@ -579,7 +613,6 @@ def abrir_about_us():
     ancho_a = about.winfo_width()
     alto_a = about.winfo_height()
 
-    # Fondo
     try:
         fondo_img = Image.open("Champions.png").resize((ancho_a, alto_a), Image.Resampling.LANCZOS)
         fondo = ImageTk.PhotoImage(fondo_img)
@@ -595,7 +628,6 @@ def abrir_about_us():
     else:
         canvas_a.create_rectangle(0, 0, ancho_a, alto_a, fill="black")
 
-    # === Foto y texto de Jonathan ===
     try:
         jon_img = Image.open("Jon.jpg").resize((250, 300), Image.Resampling.LANCZOS)
         jon = ImageTk.PhotoImage(jon_img)
@@ -616,7 +648,6 @@ def abrir_about_us():
     canvas_a.create_text(ancho_a * 0.3, alto_a * 0.75, text=texto_jon,
                          fill="gold", font=("Arial", 14, "bold"), justify="center")
 
-    # === Foto y texto de Johan ===
     try:
         johan_img = Image.open("Johan.jpg").resize((250, 300), Image.Resampling.LANCZOS)
         johan = ImageTk.PhotoImage(johan_img)
@@ -639,21 +670,18 @@ def abrir_about_us():
     canvas_a.create_text(ancho_a / 2, alto_a * 0.9, text="Versión: V1.0",
                          fill="white", font=("Arial", 16, "bold"), justify="center")
 
-    # Botón EXIT
     boton_exit_a = tk.Button(about, text="EXIT", command=about.destroy,
                              fg="black", bg="red", font=("Arial", 14, "bold"), width=8)
     canvas_a.create_window(ancho_a - 50, 40, window=boton_exit_a, anchor="ne")
 
-# =========================
-# FASE DE PENALES (MODIFICADA PARA REGISTRAR EN JSON Y AGREGAR SONIDOS)
-# =========================
-# =========================
-# FASE DE PENALES (MODIFICADA PARA REGISTRAR EN JSON Y AGREGAR SONIDOS)
-# =========================
+######################################################
+# INICIAR FASE DE PENALES
+# Configura y ejecuta la tanda de penales entre dos equipos
+######################################################
+
 def iniciar_penales(equipos_seleccionados, seleccion_final):
     global modalidad_juego
     
-    # PAUSAR LA MÚSICA DE FONDO AL INICIAR EL JUEGO
     try:
         pygame.mixer.music.pause()
     except:
@@ -666,9 +694,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
     ancho_p = ventana_penales.winfo_width()
     alto_p = ventana_penales.winfo_height()
 
-    # =========================
-    # DEFINIR TODAS LAS VARIABLES PRIMERO
-    # =========================
     local, visitante = equipos_seleccionados
     goles = {local: 0, visitante: 0}
     tiros = {local: 0, visitante: 0}
@@ -678,7 +703,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
     botones = []
     botones_widgets = []
     
-    # Fondo y canvas
     try:
         fondo_img = Image.open("cancha.png").resize((ancho_p, alto_p), Image.Resampling.LANCZOS)
         fondo = ImageTk.PhotoImage(fondo_img)
@@ -694,7 +718,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
     else:
         canvas_p.create_rectangle(0,0,ancho_p,alto_p,fill="darkgreen")
 
-    # Cargar imágenes de jugadores
     imagenes = {}
     for equipo in equipos_seleccionados:
         imagenes[equipo] = {"portero": None, "jugador": None}
@@ -706,7 +729,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         except Exception as e:
             print(f"Error cargando imagen de {equipo}:", e)
 
-    # Elementos UI
     texto_turno = canvas_p.create_text(ancho_p//2, 80, text=f"Turno: {local}",
                                        fill="white", font=("Algerian", 36, "bold"))
     texto_marcador = canvas_p.create_text(ancho_p//2, 150,
@@ -716,42 +738,35 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                                          text=f"Modalidad: {modalidad_juego.upper()}",
                                          fill="cyan", font=("Arial", 20, "bold"))
 
-    # Texto para mostrar el índice del portero
     texto_indice_portero = canvas_p.create_text(ancho_p//2, 230, 
                                               text="",
                                               fill="orange", font=("Arial", 16, "bold"))
 
-    # Posiciones de personajes
     x_portero_inicial = ancho_p * 0.25
     x_jugador_inicial = ancho_p * 0.75
     y_personajes = alto_p * 0.6
 
-    # Crear imágenes en canvas
     img_port = imagenes[visitante]["portero"] if imagenes[visitante]["portero"] else None
     img_jug = imagenes[local]["jugador"] if imagenes[local]["jugador"] else None
     portero_img = canvas_p.create_image(x_portero_inicial, y_personajes, image=img_port)
     jugador_img = canvas_p.create_image(x_jugador_inicial, y_personajes, image=img_jug)
 
-    # =========================
-    # NUEVO: VARIABLE PARA EL BOTÓN DE REGRESAR
-    # =========================
     boton_regresar = None
 
-    # =========================
-    # FUNCIÓN PARA REGRESAR AL MENÚ PRINCIPAL (MODIFICADA PARA REANUDAR MÚSICA)
-    # =========================
+######################################################
+# REGRESAR AL MENÚ PRINCIPAL
+# Cierra ventana de penales y vuelve al menú principal
+######################################################
+
     def regresar_menu_principal():
         try:
-            # REANUDAR LA MÚSICA DE FONDO AL REGRESAR AL MENÚ
             try:
                 pygame.mixer.music.unpause()
             except:
                 pass
             
-            # Cerrar todas las ventanas intermedias
-            ventana_penales.destroy()  # Cierra la ventana de penales
+            ventana_penales.destroy()
             
-            # Buscar y cerrar todas las ventanas Toplevel (selección de equipos, etc.)
             for widget in ventana.winfo_children():
                 if isinstance(widget, tk.Toplevel):
                     try:
@@ -759,28 +774,29 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                     except:
                         pass
             
-            ventana.deiconify()  # Muestra la ventana principal nuevamente
+            ventana.deiconify()
         except Exception as e:
             print("Error al regresar al menú:", e)
 
-    # =========================
-    # FUNCIÓN PARA CREAR EL BOTÓN DE REGRESAR (SOLO AL FINAL)
-    # =========================
+######################################################
+# CREAR BOTÓN DE REGRESAR
+# Crea el botón para volver al menú principal
+######################################################
+
     def crear_boton_regresar():
         nonlocal boton_regresar
-        # Solo crear el botón si no existe
         if boton_regresar is None:
             boton_regresar = tk.Button(ventana_penales, text="REGRESAR AL MENÚ PRINCIPAL", 
                                      bg="gold", fg="black", font=("Arial", 16, "bold"),
                                      width=25, height=2, command=regresar_menu_principal)
             
-            # Posicionar el botón debajo del mensaje de resultado
             canvas_p.create_window(ancho_p//2, alto_p//2 + 150, window=boton_regresar)
 
-    # =========================
-    # AHORA SÍ LAS FUNCIONES INTERNAS
-    # =========================
-    
+######################################################
+# CAMBIAR TURNO DE EQUIPO
+# Alterna entre equipo local y visitante
+######################################################
+
     def cambiar_turno():
         nonlocal turno
         turno[0] = visitante if turno[0] == local else local
@@ -794,11 +810,15 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         if imagenes[equipo_jugador]["jugador"]:
             canvas_p.itemconfig(jugador_img, image=imagenes[equipo_jugador]["jugador"])
         
-        # SONIDO: Silbato al cambiar de jugador
         try:
             sonido_silbato.play()
         except:
             pass
+
+######################################################
+# TERMINAR PARTIDA
+# Finaliza el juego y muestra resultados
+######################################################
 
     def terminar():
         nonlocal goles
@@ -814,7 +834,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         else:
             mensaje += "\n🤝 ¡Empate!"
 
-        # REGISTRAR PARTIDO EN JSON
         jugador_local_nombre = seleccion_final[local]["jugador"]
         jugador_visitante_nombre = seleccion_final[visitante]["jugador"]
     
@@ -827,16 +846,17 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         text = canvas_p.create_text(ancho_p//2, alto_p//2, text=mensaje,
                                 fill="white", font=("Algerian", 28, "bold"))
 
-        # SONIDO: Silbato al finalizar el partido
         try:
             sonido_silbato.play()
         except:
             pass
 
-        # =========================
-        # NUEVO: CREAR BOTÓN DE REGRESAR AL FINALIZAR EL PARTIDO
-        # =========================
         crear_boton_regresar()
+
+######################################################
+# ANIMAR PORTERO
+# Mueve al portero hacia la posición del tiro
+######################################################
 
     def animar_portero(dest_x, regresar=False):
         coords = canvas_p.coords(portero_img)
@@ -856,12 +876,16 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                     ventana_penales.after(600, lambda: animar_portero(x_portero_inicial, regresar=False))
         mover()
 
+######################################################
+# LANZAR PENALTI
+# Ejecuta el lanzamiento y determina si es gol o atajada
+######################################################
+
     def lanzar(pos):
         nonlocal total_tiros, goles, tiros
         
         jugador_actual = turno[0]
 
-        # Mostrar resultado
         if pos in posiciones_bloqueadas:
             resultado = "ATAJADO 🧤"
             color = "red"
@@ -869,7 +893,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                 if int(b["text"]) in posiciones_bloqueadas:
                     b.config(bg="red")
             
-            # SONIDO: Cagon cuando es atajado
             try:
                 sonido_cagon.play()
             except:
@@ -879,7 +902,6 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
             color = "lime"
             goles[jugador_actual] += 1
             
-            # SONIDO: Gol cuando anota
             try:
                 sonido_gol.play()
             except:
@@ -888,19 +910,16 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         tiros[jugador_actual] += 1
         total_tiros += 1
 
-        # Mostrar resultado
         resultado_text = canvas_p.create_text(ancho_p//2, alto_p//2, text=resultado,
                                          fill=color, font=("Algerian", 50, "bold"))
         canvas_p.itemconfig(texto_marcador,
                         text=f"{local}: {goles[local]}   -   {visitante}: {goles[visitante]}")
 
-        # Desactivar botones
         for b in botones:
             b.config(state="disabled")
 
         animar_portero(x_portero_inicial, regresar=True)
 
-        # Cancelar tiro automático si existe
         if hasattr(ventana_penales, "timer_auto"):
             try:
                 ventana_penales.after_cancel(ventana_penales.timer_auto)
@@ -915,18 +934,20 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                 terminar()
 
         if modalidad_juego == "automática":
-            # Esperar 5 segundos para cambio automático
             ventana_penales.after(3000, proceder_siguiente_tiro)
         else:
-            # Modalidad manual - esperar botón de cambio
             boton_cambio_manual = tk.Button(ventana_penales, text="CAMBIAR JUGADOR", 
                                           bg="orange", fg="black", font=("Arial", 16, "bold"),
                                           command=proceder_siguiente_tiro)
             boton_cambio_manual.place(relx=0.5, rely=0.75, anchor="center")
             ventana_penales.boton_cambio = boton_cambio_manual
 
+######################################################
+# SIGUIENTE TIRO
+# Prepara el siguiente lanzamiento
+######################################################
+
     def siguiente_tiro():
-        # Limpiar botón de cambio manual si existe
         if hasattr(ventana_penales, 'boton_cambio'):
             try:
                 ventana_penales.boton_cambio.destroy()
@@ -936,10 +957,14 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         cambiar_turno()
         crear_botones()
 
+######################################################
+# CREAR BOTONES DE TIRO
+# Genera los botones para seleccionar posición de tiro
+######################################################
+
     def crear_botones():
         nonlocal posiciones_bloqueadas, botones, botones_widgets
         
-        # Destruir botones anteriores
         for b in botones_widgets:
             try:
                 b.destroy()
@@ -948,13 +973,9 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
         botones_widgets = []
         botones = []
 
-        # =========================
-        # ALGORITMO DE POSICIÓN DEL PORTERO - 3 ÍNDICES
-        # =========================
         def generar_posicion_portero():
             indice = random.choice(["AN1", "AN2", "AN3"])
             
-            # Actualizar texto en la interfaz
             descripciones = {
                 "AN1": "AN1: 2 paletas contiguas",
                 "AN2": "AN2: 3 paletas contiguas", 
@@ -964,25 +985,20 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
             print(f"Índice del portero: {indice} - {descripciones[indice]}")
             
             if indice == "AN1":
-                # AN1: 2 paletas contiguas
                 inicio = random.randint(1, 5)
                 return [inicio, inicio + 1]
             
             elif indice == "AN2":
-                # AN2: 3 paletas contiguas
                 inicio = random.randint(1, 4)
                 return [inicio, inicio + 1, inicio + 2]
             
             elif indice == "AN3":
-                # AN3: 3 paletas alternas (dos grupos posibles)
                 grupo = random.choice([[1, 3, 5], [2, 4, 6]])
                 return grupo
         
-        # Generar posiciones bloqueadas según el algoritmo
         posiciones_bloqueadas = generar_posicion_portero()
         print(f"Posiciones bloqueadas: {posiciones_bloqueadas}")
 
-        # Crear botones
         for i in range(6):
             numero = i + 1
             color_fondo = "lightblue"
@@ -993,60 +1009,48 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
             botones_widgets.append(b)
             botones.append(b)
 
-        # Animación del portero - CENTRAR EN EL MEDIO DE LAS POSICIONES BLOQUEADAS
         if posiciones_bloqueadas:
             pos_media = sum(posiciones_bloqueadas) / len(posiciones_bloqueadas)
             x_destino = ancho_p * (0.2 + (pos_media - 1) * 0.1)
             animar_portero(x_destino, regresar=True)
         
-        # SONIDO: Silbato al iniciar cada turno
         try:
             sonido_silbato.play()
         except:
             pass
         
-        # Tiro automático después de 7 segundos - CORREGIDO
         def tiro_automatico():
             if any(b["state"] == "normal" for b in botones):
-                # SONIDO: Silbato cuando se acaba el tiempo
                 try:
                     sonido_silbato.play()
                 except:
                     pass
                 
-                # SI SE ACABA EL TIEMPO, ES SIEMPRE FALLO
-                # Elegimos una posición que SEGURO esté bloqueada por el portero
                 if posiciones_bloqueadas:
                     pos_aleatoria = random.choice(posiciones_bloqueadas)
                 else:
-                    pos_aleatoria = random.randint(1, 6)  # Fallback por seguridad
+                    pos_aleatoria = random.randint(1, 6)
                 
                 print(f"⏰ TIEMPO AGOTADO - Tiro automático en posición {pos_aleatoria} - FALLO")
                 lanzar(pos_aleatoria)
 
-        # CANCELAR TEMPORIZADOR ANTERIOR Y CREAR UNO NUEVO
         if hasattr(ventana_penales, "timer_auto"):
             try:
                 ventana_penales.after_cancel(ventana_penales.timer_auto)
             except:
                 pass
         
-        # PROGRAMAR NUEVO TEMPORIZADOR
         ventana_penales.timer_auto = ventana_penales.after(7000, tiro_automatico)
 
-    # SONIDO: Silbato al iniciar el juego
     try:
         sonido_silbato.play()
     except:
         pass
 
-    # Iniciar primera tanda
     crear_botones()
 
-    # Botón EXIT (MODIFICADO PARA REANUDAR MÚSICA)
     def salir_desde_juego():
         try:
-            # REANUDAR LA MÚSICA AL SALIR
             pygame.mixer.music.unpause()
         except:
             pass
@@ -1056,9 +1060,10 @@ def iniciar_penales(equipos_seleccionados, seleccion_final):
                              fg="black", bg="red", font=("Arial", 14, "bold"), width=8)
     canvas_p.create_window(ancho_p - 50, 40, window=boton_exit_p, anchor="ne")
 
-# =========================
-# SELECCIÓN DE JUGADORES
-# =========================
+######################################################
+# ABRIR SELECCIÓN DE JUGADORES
+# Permite seleccionar porteros y tiradores para cada equipo
+######################################################
 
 def abrir_seleccion_jugadores(equipos_seleccionados):
     juego = tk.Toplevel()
@@ -1083,25 +1088,21 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
     else:
         canvas_j.create_rectangle(0, 0, ancho_j, alto_j, fill="black")
 
-    # Título
     canvas_j.create_text(ancho_j//2, 80, text="SELECCIÓN DE JUGADORES", 
                         fill="white", font=("Algerian", 36, "bold"))
 
-    # =========================
-    # Jugadores por equipo (3 porteros y 3 jugadores)
-    # =========================
     jugadores_img = {
         "Man City": {
-            "porteros": ["bravo", "ederson", "ortega"],  # 🔥 QUITÉ .png
-            "jugadores": ["haaland", "aguero", "bruyne"]  # 🔥 QUITÉ .png
+            "porteros": ["bravo", "ederson", "ortega"],
+            "jugadores": ["haaland", "aguero", "bruyne"]
         },
         "AC Milan": {
-            "porteros": ["dida", "mike", "dona"],  # 🔥 QUITÉ .png
-            "jugadores": ["ibra", "dinho", "cafu"]  # 🔥 QUITÉ .png
+            "porteros": ["dida", "mike", "dona"],
+            "jugadores": ["ibra", "dinho", "cafu"]
         },
         "Man United": {
-            "porteros": ["peter", "sergio", "Van_der"],  # 🔥 QUITÉ .png
-            "jugadores": ["BICHO", "best", "rooney"]  # 🔥 QUITÉ .png
+            "porteros": ["peter", "sergio", "Van_der"],
+            "jugadores": ["BICHO", "best", "rooney"]
         }
     }
 
@@ -1115,7 +1116,6 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
         seleccion_actual = seleccionados_por_equipo[equipo]
         es_portero = jugador_nombre in jugadores_img[equipo]["porteros"]
 
-        # Contar si ya hay un portero o jugador seleccionado
         porteros_sel = [j for j in seleccion_actual if j in jugadores_img[equipo]["porteros"]]
         jugadores_sel = [j for j in seleccion_actual if j in jugadores_img[equipo]["jugadores"]]
 
@@ -1138,25 +1138,16 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
 
         print("Selección actual:", seleccionados_por_equipo)
 
-    # =========================
-    # NUEVA ORGANIZACIÓN: Columnas verticales
-    # =========================
-    
-    # Posiciones para los equipos
-    # Equipo local a la izquierda, visitante a la derecha
     local, visitante = equipos_seleccionados
     
-    # Configuración de columnas
     columna_local_x = ancho_j * 0.25
     columna_visitante_x = ancho_j * 0.75
     
-    # Títulos de equipos
     canvas_j.create_text(columna_local_x, 150, text=f"{local}\n(LOCAL)", 
                         fill="lightblue", font=("Arial", 20, "bold"), justify="center")
     canvas_j.create_text(columna_visitante_x, 150, text=f"{visitante}\n(VISITANTE)", 
                         fill="lightcoral", font=("Arial", 20, "bold"), justify="center")
     
-    # Subtítulos para porteros y artilleros
     canvas_j.create_text(columna_local_x - 100, 200, text="PORTEROS", 
                         fill="yellow", font=("Arial", 16, "bold"))
     canvas_j.create_text(columna_local_x + 100, 200, text="ARTILLEROS", 
@@ -1167,64 +1158,49 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
     canvas_j.create_text(columna_visitante_x + 100, 200, text="ARTILLEROS", 
                         fill="yellow", font=("Arial", 16, "bold"))
 
-    # =========================
-    # Crear botones en columnas verticales
-    # =========================
-    
     def crear_columna_jugadores(equipo, columna_x, es_local=True):
-        """Crea una columna vertical de jugadores para un equipo"""
-        y_start = 350  # 🔥 AUMENTÉ de 300 a 350 para mover botones más abajo
-        y_spacing = 120  # Espacio entre botones
+        y_start = 350
+        y_spacing = 120
         
-        # PORTEROS (columna izquierda dentro del equipo)
         x_porteros = columna_x - 100 if es_local else columna_x - 100
-        for i, jugador_nombre in enumerate(jugadores_img[equipo]["porteros"]):  # 🔥 CAMBIÉ img_path por jugador_nombre
+        for i, jugador_nombre in enumerate(jugadores_img[equipo]["porteros"]):
             try:
-                # 🔥 AGREGAR .png aquí para cargar la imagen
                 imagen_jugador = ImageTk.PhotoImage(Image.open(f"{jugador_nombre}.png").resize((100, 100), Image.Resampling.LANCZOS))
             except Exception as e:
                 print(f"Error cargando imagen de {jugador_nombre}:", e)
                 imagen_jugador = None
             
             boton = tk.Button(juego, image=imagen_jugador, bd=2, bg="cyan")
-            boton.config(command=partial(seleccionar_jugador, equipo, jugador_nombre, boton))  # 🔥 USAR jugador_nombre
+            boton.config(command=partial(seleccionar_jugador, equipo, jugador_nombre, boton))
             boton.place(x=x_porteros, y=y_start + (i * y_spacing), anchor="center")
             boton.imagen = imagen_jugador
             botones_jugadores.append(boton)
             
-            # Nombre del jugador debajo del botón
             nombre_display = jugador_nombre.replace("_", " ").title()
             canvas_j.create_text(x_porteros, y_start + (i * y_spacing) + 60, 
                                text=nombre_display, fill="white", font=("Arial", 10, "bold"))
 
-        # JUGADORES/ARTILLEROS (columna derecha dentro del equipo)
         x_jugadores = columna_x + 100 if es_local else columna_x + 100
-        for i, jugador_nombre in enumerate(jugadores_img[equipo]["jugadores"]):  # 🔥 CAMBIÉ img_path por jugador_nombre
+        for i, jugador_nombre in enumerate(jugadores_img[equipo]["jugadores"]):
             try:
-                # 🔥 AGREGAR .png aquí para cargar la imagen
                 imagen_jugador = ImageTk.PhotoImage(Image.open(f"{jugador_nombre}.png").resize((100, 100), Image.Resampling.LANCZOS))
             except Exception as e:
                 print(f"Error cargando imagen de {jugador_nombre}:", e)
                 imagen_jugador = None
             
             boton = tk.Button(juego, image=imagen_jugador, bd=2, bg="cyan")
-            boton.config(command=partial(seleccionar_jugador, equipo, jugador_nombre, boton))  # 🔥 USAR jugador_nombre
+            boton.config(command=partial(seleccionar_jugador, equipo, jugador_nombre, boton))
             boton.place(x=x_jugadores, y=y_start + (i * y_spacing), anchor="center")
             boton.imagen = imagen_jugador
             botones_jugadores.append(boton)
             
-            # Nombre del jugador debajo del botón
             nombre_display = jugador_nombre.replace("_", " ").title()
             canvas_j.create_text(x_jugadores, y_start + (i * y_spacing) + 60, 
                                text=nombre_display, fill="white", font=("Arial", 10, "bold"))
 
-    # Crear columnas para ambos equipos
     crear_columna_jugadores(local, columna_local_x, es_local=True)
     crear_columna_jugadores(visitante, columna_visitante_x, es_local=False)
 
-    # =========================
-    # Botón CONFIRMAR (CORREGIDO)
-    # =========================
     def confirmar():
         todo_correcto = all(len(seleccionados_por_equipo[e]) == 2 for e in equipos_seleccionados)
         if todo_correcto:
@@ -1232,16 +1208,13 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
             for equipo in equipos_seleccionados:
                 seleccion = seleccionados_por_equipo[equipo]
                 
-                # 🔥 VERIFICACIÓN ADICIONAL PARA EVITAR None
                 if len(seleccion) != 2:
                     print(f"Error: {equipo} no tiene 2 jugadores seleccionados")
                     return
                 
-                # Determinar quién es portero y quién es jugador
                 portero = next((j for j in seleccion if j in jugadores_img[equipo]["porteros"]), None)
                 jugador = next((j for j in seleccion if j in jugadores_img[equipo]["jugadores"]), None)
                 
-                # 🔥 VERIFICAR QUE NO HAYA None
                 if portero is None or jugador is None:
                     print(f"Error: Selección inválida para {equipo} - Portero: {portero}, Jugador: {jugador}")
                     return
@@ -1264,19 +1237,19 @@ def abrir_seleccion_jugadores(equipos_seleccionados):
                                 command=confirmar)
     boton_confirmar.place(relx=0.5, rely=0.75, anchor="center")
 
-    # Instrucciones
     canvas_j.create_text(ancho_j//2, alto_j - 100, 
                         text="Selecciona 1 PORTERO y 1 ARTILLERO por equipo", 
                         fill="yellow", font=("Arial", 14, "bold"))
 
-    # Botón EXIT (vuelve a cerrar todo)
     boton_exit_j = tk.Button(juego, text="EXIT", command=salir, fg="black", bg="red",
                              font=("Arial",14,"bold"), width=8)
     canvas_j.create_window(ancho_j-50, 40, window=boton_exit_j, anchor="ne")
 
-# =========================
-# ANIMACIÓN MONEDA
-# =========================
+######################################################
+# LANZAR MONEDA
+# Realiza animación de lanzamiento de moneda para determinar equipo local
+######################################################
+
 def lanzar_moneda(equipos_seleccionados):
     ventana_moneda = tk.Toplevel()
     ventana_moneda.title("Tirada de moneda")
@@ -1300,7 +1273,6 @@ def lanzar_moneda(equipos_seleccionados):
     else:
         canvas_m.create_rectangle(0,0,ancho_m,alto_m,fill="black")
 
-    # === GIF animado ===
     gif_path = os.path.join("animacion_moneda", "moneda.gif")
     try:
         gif = Image.open(gif_path)
@@ -1352,9 +1324,11 @@ def lanzar_moneda(equipos_seleccionados):
 
     animar_moneda()
 
-# =========================
-# SELECCIÓN DE EQUIPOS
-# =========================
+######################################################
+# ABRIR SELECCIÓN DE EQUIPOS
+# Permite seleccionar los dos equipos que jugarán
+######################################################
+
 def abrir_seleccion_equipos():
     global seleccion
     ventana.withdraw()
@@ -1391,7 +1365,6 @@ def abrir_seleccion_equipos():
     def actualizar_color(boton, seleccionado):
         boton.config(bg="red" if seleccionado else "cyan")
 
-    # mapeo para buscar botones por nombre cuando necesitemos deseleccionar
     botones_map = {}
 
     def seleccionar_equipo(nombre, boton):
@@ -1404,7 +1377,6 @@ def abrir_seleccion_equipos():
                 equipos_seleccionados.append(nombre)
                 actualizar_color(boton, True)
             else:
-                # quitar el último seleccionado y marcar su botón como no seleccionado
                 ultimo = equipos_seleccionados.pop()
                 for b_name, b_widget in botones_map.items():
                     if b_name == ultimo:
@@ -1439,16 +1411,16 @@ def abrir_seleccion_equipos():
                                font=("Arial",14,"bold"), width=8)
     canvas2.create_window(ancho2-50, 40, window=boton_exit_sel, anchor="ne")
 
-    # Botón continuar a moneda
     boton_continuar = tk.Button(seleccion, text="Continuar", bg="lightgreen", fg="black",
                                 font=("Algerian",22,"bold"), width=15, height=2,
                                 command=lambda: lanzar_moneda(equipos_seleccionados))
     boton_continuar.place(relx=0.5, rely=0.6, anchor="center")
 
-# =========================
-# MENÚ PRINCIPAL (MODIFICADO)
-# =========================
-# Fondo y texto (ya definidas ancho/alto arriba)
+######################################################
+# CONFIGURAR INTERFAZ PRINCIPAL
+# Crea los elementos del menú principal
+######################################################
+
 try:
     imagen_fondo = Image.open("Champions.png").resize((ancho, alto), Image.Resampling.LANCZOS)
     fondo = ImageTk.PhotoImage(imagen_fondo)
@@ -1474,7 +1446,6 @@ boton_about = tk.Button(ventana, text="About Us", fg="black", bg="lightblue",
                         font=("Algerian", 20),width=15, height=1, command=abrir_about_us)
 boton_about.place(relx=0.5, rely=0.35, anchor="center")
 
-# NUEVO BOTÓN: HISTORIAL
 boton_historial = tk.Button(ventana, text="Historial", fg="black", bg="lightblue",
                            font=("Algerian", 20),width=15, height=1, command=abrir_historial)
 boton_historial.place(relx=0.5, rely=0.45, anchor="center")
@@ -1483,21 +1454,11 @@ boton_exit = tk.Button(ventana, text="EXIT", command=salir, fg="black", bg="red"
                        font=("Arial",14,"bold"), relief="raised", width=8)
 canvas.create_window(ancho-50, 40, window=boton_exit, anchor="ne")
 
-# =========================
-# INICIAR CLIENTE AL ARRANCAR LA INTERFAZ
-# =========================
+######################################################
+# INICIAR CLIENTE RASPBERRY
+# Inicia la conexión con Raspberry Pi al arrancar
+######################################################
+
 cliente_raspberry.conectar_raspberry()
-
-# Agregar botón de reconexión en el menú principal
-boton_reconectar = tk.Button(ventana, text="Reconectar Raspberry", fg="black", bg="orange",
-                           font=("Algerian", 16), width=18, height=1,
-                           command=cliente_raspberry.conectar_raspberry)
-boton_reconectar.place(relx=0.5, rely=0.55, anchor="center")
-
-# Botón para forzar configuración desde Raspberry
-boton_config_raspberry = tk.Button(ventana, text="Config desde Raspberry", fg="black", bg="lightgreen",
-                                 font=("Algerian", 16), width=18, height=1,
-                                 command=cliente_raspberry.preguntar_inicio_juego)
-boton_config_raspberry.place(relx=0.5, rely=0.65, anchor="center")
 
 ventana.mainloop()
