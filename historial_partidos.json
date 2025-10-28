@@ -1,6 +1,18 @@
 {
   "partidos": [
     {
+      "id": 9,
+      "fecha": "2025-10-27 20:56:07",
+      "equipo_local": "Man United",
+      "equipo_visitante": "Man City",
+      "goles_local": 3,
+      "goles_visitante": 3,
+      "jugador_local": "BICHO",
+      "jugador_visitante": "haaland",
+      "modalidad": "automática",
+      "ganador": "Empate"
+    },
+    {
       "id": 8,
       "fecha": "2025-10-26 17:56:52",
       "equipo_local": "Man United",
@@ -23,19 +35,7 @@
       "jugador_visitante": "rooney",
       "modalidad": "automática",
       "ganador": "Man United"
-    },
-    {
-      "id": 6,
-      "fecha": "2025-10-25 21:39:09",
-      "equipo_local": "Man City",
-      "equipo_visitante": "AC Milan",
-      "goles_local": 3,
-      "goles_visitante": 2,
-      "jugador_local": "haaland",
-      "jugador_visitante": "ibra",
-      "modalidad": "automática",
-      "ganador": "Man City"
     }
   ],
-  "ultimo_id": 8
+  "ultimo_id": 9
 }

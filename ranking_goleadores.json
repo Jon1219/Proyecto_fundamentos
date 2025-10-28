@@ -3,17 +3,17 @@
     {
       "jugador": "haaland",
       "equipo": "Man City",
-      "goles": 20
+      "goles": 23
+    },
+    {
+      "jugador": "BICHO",
+      "equipo": "Man United",
+      "goles": 9
     },
     {
       "jugador": "best",
       "equipo": "Man United",
       "goles": 7
-    },
-    {
-      "jugador": "BICHO",
-      "equipo": "Man United",
-      "goles": 6
     }
   ]
 }
