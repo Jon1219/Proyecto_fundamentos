@@ -5,7 +5,257 @@ from functools import partial
 import random
 import os
 import json
+from tkinter import messagebox
+import threading
+import socket
+import json
 from datetime import datetime
+
+# =========================
+# SERVIDOR PARA COMUNICACIÓN CON RASPBERRY
+# =========================
+# =========================
+# CLIENTE PARA COMUNICACIÓN CON RASPBERRY
+# =========================
+# =========================
+# CLIENTE PARA COMUNICACIÓN CON RASPBERRY (VERSIÓN CORREGIDA)
+# =========================
+class ClienteRaspberry:
+    def __init__(self, host='10.238.236.35', port=5000):  # IP de la Raspberry
+        self.host = host
+        self.port = port
+        self.socket = None
+        self.conectado = False
+        self.equipos_seleccionados = []
+        self.seleccion_final = {}
+        self.reconectar_automatico = True
+        
+    def conectar_raspberry(self):
+        """Conecta con la Raspberry Pi"""
+        if self.conectado:
+            return
+            
+        def conectar_loop():
+            try:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.settimeout(5)
+                print(f"🔗 Conectando a Raspberry en {self.host}:{self.port}...")
+                self.socket.connect((self.host, self.port))
+                self.socket.settimeout(1.0)
+                self.conectado = True
+                print("✅ Conectado a Raspberry Pi")
+                self.recibir_mensajes()
+            except Exception as e:
+                print(f"❌ Error conectando a Raspberry: {e}")
+                self.conectado = False
+                # Reintentar después de 5 segundos si está habilitado
+                if self.reconectar_automatico:
+                    print("🔄 Reintentando conexión en 5 segundos...")
+                    ventana.after(5000, self.conectar_raspberry)
+        
+        thread = threading.Thread(target=conectar_loop, daemon=True)
+        thread.start()
+    
+    def recibir_mensajes(self):
+        """Recibe mensajes de la Raspberry en un hilo separado"""
+        def recibir_loop():
+            while self.conectado:
+                try:
+                    datos = self.socket.recv(1024)
+                    if not datos:
+                        print("🔌 Conexión cerrada por Raspberry")
+                        self.conectado = False
+                        break
+                    
+                    mensajes = datos.decode().strip().split('\n')
+                    for mensaje_str in mensajes:
+                        if mensaje_str:
+                            try:
+                                mensaje = json.loads(mensaje_str)
+                                ventana.after(0, lambda: self.procesar_mensaje(mensaje))
+                            except json.JSONDecodeError:
+                                print(f"❌ Mensaje JSON inválido: {mensaje_str}")
+                except socket.timeout:
+                    continue  # Timeout normal, continuar esperando
+                except Exception as e:
+                    print(f"❌ Error recibiendo mensajes: {e}")
+                    self.conectado = False
+                    break
+            
+            # Si salimos del loop, intentar reconectar
+            if self.reconectar_automatico:
+                print("🔄 Intentando reconexión...")
+                ventana.after(2000, self.conectar_raspberry)
+        
+        thread = threading.Thread(target=recibir_loop, daemon=True)
+        thread.start()
+    
+    def procesar_mensaje(self, mensaje):
+        """Procesa los mensajes recibidos de la Raspberry"""
+        tipo = mensaje.get("tipo")
+        datos = mensaje.get("datos", {})
+        
+        print(f"📥 Mensaje de Raspberry: {tipo}")
+        
+        if tipo == "EQUIPO_SELECCIONADO":
+            equipo = datos.get("equipo")
+            print(f"🏆 Equipo seleccionado en Raspberry: {equipo}")
+            
+        elif tipo == "JUGADOR_SELECCIONADO":
+            jugador = datos.get("jugador")
+            tipo_jugador = datos.get("tipo")
+            print(f"👤 {tipo_jugador.title()} seleccionado: {jugador}")
+            
+        elif tipo == "EQUIPO_CONFIRMADO":
+            equipo = datos.get("equipo")
+            tipo_equipo = datos.get("tipo")
+            print(f"✅ {tipo_equipo.title()} confirmado: {equipo}")
+            
+        elif tipo == "JUGADOR_CONFIRMADO":
+            jugador = datos.get("jugador")
+            tipo_jugador = datos.get("tipo")
+            equipo = datos.get("equipo")
+            print(f"✅ {tipo_jugador.title()} {equipo} confirmado: {jugador}")
+            
+        elif tipo == "CONFIGURACION_COMPLETADA":
+            print("🎯 Configuración completada en Raspberry")
+            self.equipos_seleccionados = [
+                datos.get("equipo_local"), 
+                datos.get("equipo_visitante")
+            ]
+            self.seleccion_final = {
+                datos.get("equipo_local"): {
+                    "portero": datos.get("portero_local"),
+                    "jugador": datos.get("tirador_local")
+                },
+                datos.get("equipo_visitante"): {
+                    "portero": datos.get("portero_visitante"), 
+                    "jugador": datos.get("tirador_visitante")
+                }
+            }
+            
+            # Mostrar mensaje en la interfaz
+            self.mostrar_configuracion_raspberry()
+            
+        elif tipo == "PARTIDA_INICIADA":
+            print("🎮 Partida iniciada desde Raspberry")
+            
+        elif tipo == "TIRO_INICIADO":
+            equipo = datos.get("equipo")
+            tirador = datos.get("tirador")
+            print(f"🎯 Tiro iniciado: {tirador} de {equipo}")
+            
+        elif tipo == "GOL":
+            equipo = datos.get("equipo")
+            tirador = datos.get("tirador")
+            print(f"🎉 ¡GOL de {tirador} del equipo {equipo}!")
+            
+        elif tipo == "ATAJADA":
+            equipo = datos.get("equipo")
+            tirador = datos.get("tirador")
+            print(f"🧤 ¡ATAJADA al tiro de {tirador} del equipo {equipo}!")
+            
+        elif tipo == "MARCADOR_ACTUALIZADO":
+            goles_local = datos.get("goles_local")
+            goles_visitante = datos.get("goles_visitante")
+            print(f"📊 Marcador actualizado: {goles_local} - {goles_visitante}")
+            
+        elif tipo == "PARTIDA_FINALIZADA":
+            goles_local = datos.get("goles_local")
+            goles_visitante = datos.get("goles_visitante")
+            ganador = datos.get("ganador")
+            print(f"🏁 Partida finalizada: {goles_local} - {goles_visitante}")
+            print(f"🎊 Ganador: {ganador}")
+    
+    def mostrar_configuracion_raspberry(self):
+        """Muestra la configuración recibida de la Raspberry"""
+        if self.equipos_seleccionados and self.seleccion_final:
+            print("\n" + "="*50)
+            print("CONFIGURACIÓN RECIBIDA DE RASPBERRY:")
+            print(f"LOCAL: {self.equipos_seleccionados[0]}")
+            print(f"  Portero: {self.seleccion_final[self.equipos_seleccionados[0]]['portero']}")
+            print(f"  Tirador: {self.seleccion_final[self.equipos_seleccionados[0]]['jugador']}")
+            print(f"VISITANTE: {self.equipos_seleccionados[1]}")
+            print(f"  Portero: {self.seleccion_final[self.equipos_seleccionados[1]]['portero']}")
+            print(f"  Tirador: {self.seleccion_final[self.equipos_seleccionados[1]]['jugador']}")
+            print("="*50)
+            
+            # Preguntar si iniciar el juego
+            self.preguntar_inicio_juego()
+    
+    def preguntar_inicio_juego(self):
+        """Pregunta al usuario si quiere iniciar el juego con la configuración de Raspberry"""
+        try:
+            respuesta = messagebox.askyesno(  # ⚡ CORREGIDO: usar messagebox directamente
+                "Configuración Recibida", 
+                f"¿Deseas iniciar el juego con esta configuración?\n\n"
+                f"LOCAL: {self.equipos_seleccionados[0]}\n"
+                f"VISITANTE: {self.equipos_seleccionados[1]}\n\n"
+                f"Portero Local: {self.seleccion_final[self.equipos_seleccionados[0]]['portero']}\n"
+                f"Tirador Local: {self.seleccion_final[self.equipos_seleccionados[0]]['jugador']}\n"
+                f"Portero Visitante: {self.seleccion_final[self.equipos_seleccionados[1]]['portero']}\n"
+                f"Tirador Visitante: {self.seleccion_final[self.equipos_seleccionados[1]]['jugador']}"
+            )
+            
+            if respuesta:
+                self.iniciar_juego_desde_raspberry()
+        except Exception as e:
+            print(f"❌ Error mostrando messagebox: {e}")
+            # Si hay error con el messagebox, iniciar automáticamente después de 3 segundos
+            print("🔄 Iniciando juego automáticamente en 3 segundos...")
+            ventana.after(3000, self.iniciar_juego_desde_raspberry)
+    
+    def iniciar_juego_desde_raspberry(self):
+        """Inicia el juego con la configuración de la Raspberry"""
+        if self.equipos_seleccionados and self.seleccion_final:
+            print("🚀 Iniciando juego con configuración de Raspberry...")
+            # Cerrar ventanas actuales
+            for widget in ventana.winfo_children():
+                if isinstance(widget, tk.Toplevel):
+                    try:
+                        widget.destroy()
+                    except:
+                        pass
+            
+            # Iniciar directamente los penales
+            ventana.after(500, lambda: iniciar_penales(self.equipos_seleccionados, self.seleccion_final))
+    
+    def enviar_mensaje(self, tipo, datos):
+        """Envía mensajes a la Raspberry"""
+        if self.conectado and self.socket:
+            try:
+                mensaje = {
+                    "tipo": tipo,
+                    "datos": datos,
+                    "timestamp": datetime.now().isoformat()
+                }
+                mensaje_json = json.dumps(mensaje) + "\n"
+                self.socket.send(mensaje_json.encode())
+                print(f"📤 Enviado a Raspberry: {tipo}")
+                return True
+            except Exception as e:
+                print(f"❌ Error enviando mensaje a Raspberry: {e}")
+                self.conectado = False
+        return False
+    
+    def reiniciar_juego(self):
+        """Envía comando de reinicio a la Raspberry"""
+        self.enviar_mensaje("REINICIAR", {})
+        print("🔄 Comando de reinicio enviado a Raspberry")
+    
+    def desconectar(self):
+        """Desconecta del servidor"""
+        self.reconectar_automatico = False
+        self.conectado = False
+        if self.socket:
+            try:
+                self.socket.close()
+            except:
+                pass
+        print("🔌 Desconectado de Raspberry")
+
+# Crear instancia global del cliente
+cliente_raspberry = ClienteRaspberry()
 
 # =========================
 # INICIALIZAR MÚSICA Y EFECTOS DE SONIDO
@@ -1232,5 +1482,22 @@ boton_historial.place(relx=0.5, rely=0.45, anchor="center")
 boton_exit = tk.Button(ventana, text="EXIT", command=salir, fg="black", bg="red",
                        font=("Arial",14,"bold"), relief="raised", width=8)
 canvas.create_window(ancho-50, 40, window=boton_exit, anchor="ne")
+
+# =========================
+# INICIAR CLIENTE AL ARRANCAR LA INTERFAZ
+# =========================
+cliente_raspberry.conectar_raspberry()
+
+# Agregar botón de reconexión en el menú principal
+boton_reconectar = tk.Button(ventana, text="Reconectar Raspberry", fg="black", bg="orange",
+                           font=("Algerian", 16), width=18, height=1,
+                           command=cliente_raspberry.conectar_raspberry)
+boton_reconectar.place(relx=0.5, rely=0.55, anchor="center")
+
+# Botón para forzar configuración desde Raspberry
+boton_config_raspberry = tk.Button(ventana, text="Config desde Raspberry", fg="black", bg="lightgreen",
+                                 font=("Algerian", 16), width=18, height=1,
+                                 command=cliente_raspberry.preguntar_inicio_juego)
+boton_config_raspberry.place(relx=0.5, rely=0.65, anchor="center")
 
 ventana.mainloop()
